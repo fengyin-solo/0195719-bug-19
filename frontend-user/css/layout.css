@@ -153,6 +153,91 @@
     font-weight: var(--font-weight-medium);
 }
 
+/* 光线未穿过镜片时的原因提示条 */
+.canvas-notice {
+    position: absolute;
+    top: var(--spacing-sm);
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100% - var(--spacing-lg));
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--color-warning-light);
+    border: 1px solid var(--color-warning);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-primary);
+    line-height: 1.5;
+    z-index: 5;
+}
+
+.canvas-notice-icon {
+    flex-shrink: 0;
+}
+
+.canvas-notice-text {
+    flex: 1;
+}
+
+.canvas-notice .btn {
+    flex-shrink: 0;
+    min-height: 32px;
+    padding: 2px var(--spacing-sm);
+}
+
+/* 工具栏中央的光源控制组 */
+.light-control {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.light-control-label {
+    white-space: nowrap;
+}
+
+.light-control-value {
+    min-width: 28px;
+    font-family: "Courier New", monospace;
+    color: var(--color-primary);
+    font-weight: var(--font-weight-bold);
+}
+
+.light-slider {
+    width: 80px;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--color-border);
+    border-radius: var(--radius-full);
+    outline: none;
+    cursor: pointer;
+}
+
+.light-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    background: var(--color-primary);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+}
+
+.light-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: var(--color-primary);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    border: none;
+}
+
 /* 底部知识提示区 */
 .app-footer {
     display: flex;

@@ -33,6 +33,12 @@ class App {
         
         // 初始化交互管理器
         this.interactionManager = new InteractionManager(this.canvasManager);
+
+        // 恢复上次离开页面时保存的设计（透镜位置、参数与光源设置），
+        // 焦点标记由统一的焦距公式根据相同参数重新计算，位置保持一致
+        if (this.canvasManager.restoreDesign()) {
+            this.interactionManager.syncToolbarControls();
+        }
         
         // 初始化引导系统
         this.guideManager = new GuideManager();
@@ -141,9 +147,18 @@ class App {
      * 开始测验模式
      */
     startQuizMode() {
-        // 清空画布
+        // 测验透镜是临时的：暂停持久化并清空画布，但不删除已保存的设计
+        this.canvasManager.persistEnabled = false;
         this.canvasManager.clear();
-        
+
+        // 复位光源控件（测验画布从停止光路、默认平行光开始）
+        const renderer = this.canvasManager.getRenderer();
+        renderer.setLightMode(CONFIG.LIGHT_DEFAULTS.mode);
+        renderer.setRayCount(CONFIG.LIGHT_DEFAULTS.rayCount);
+        renderer.setIncidentAngle(CONFIG.LIGHT_DEFAULTS.angle);
+        renderer.setShowDispersion(false);
+        this.interactionManager.syncToolbarControls();
+
         // 启动测验
         this.quizManager.startQuizMode();
         
@@ -174,38 +189,45 @@ class App {
      */
     stopQuizMode() {
         if (!this.quizManager.isQuizMode) return;
-        
+
         const score = this.quizManager.getScore();
         this.quizManager.stopQuizMode();
-        
+
         // 更新UI
         const btnQuizMode = document.getElementById('btn-quiz-mode');
         if (btnQuizMode) {
             btnQuizMode.classList.remove('active');
             btnQuizMode.querySelector('span').textContent = '测验模式';
         }
-        
+
         // 隐藏测验面板
         const quizPanel = document.getElementById('quiz-panel');
         if (quizPanel) {
             quizPanel.classList.add('hidden');
         }
-        
+
         // 移除测验模式类
         const appContainer = document.getElementById('app');
         if (appContainer) {
             appContainer.classList.remove('quiz-mode');
         }
-        
+
         // 隐藏结果模态框
         const resultModal = document.getElementById('quiz-result-modal');
         if (resultModal) {
             resultModal.classList.add('hidden');
         }
-        
-        // 清空画布
+
+        // 退出测验：清掉临时透镜，恢复用户之前保存的实验设计
         this.canvasManager.clear();
-        
+        this.canvasManager.persistEnabled = true;
+        if (this.canvasManager.restoreDesign()) {
+            this.interactionManager.syncToolbarControls();
+        } else {
+            // 没有可恢复的设计时，也要把光路按钮复位
+            this.interactionManager.updateLightButtonState(false);
+        }
+
         Utils.showToast(
             `测验结束！得分：${score.score}分，正确率：${score.accuracy}%`,
             score.accuracy >= 60 ? 'success' : 'warning'
@@ -383,7 +405,6 @@ class App {
      */
     skipQuizQuestion() {
         if (!this.quizManager.isQuizMode) return;
-        
         // 记录跳过（不扣分，但计入总题数）
         this.quizManager.totalQuestions++;
         this.quizManager.questionHistory.push({

@@ -212,7 +212,7 @@
                             </div>
                             <div class="lens-item" draggable="true" data-lens-type="aspheric">
                                 <div class="lens-icon lens-aspheric"></div>
-                                <span class="lens-name">非球面</span>
+                                <span class="lens-name">非球面透镜</span>
                                 <button class="btn-help-small" data-help="aspheric">?</button>
                             </div>
                         </div>
@@ -254,10 +254,28 @@
                         </button>
                     </div>
                     <div class="toolbar-center">
-                        <select class="select-light-mode" id="select-light-mode">
+                        <select class="select-light-mode" id="select-light-mode" aria-label="光源模式">
                             <option value="parallel">平行光</option>
                             <option value="point">点光源</option>
                         </select>
+                        <label class="light-control" for="param-angle">
+                            <span class="light-control-label">入射角</span>
+                            <input type="range" class="light-slider" id="param-angle"
+                                   min="-30" max="30" step="1" value="0">
+                            <span class="light-control-value" id="param-angle-value">0°</span>
+                        </label>
+                        <label class="light-control" for="select-ray-count">
+                            <span class="light-control-label">光线数</span>
+                            <select class="select-light-mode" id="select-ray-count" aria-label="光线数量">
+                                <option value="3">3</option>
+                                <option value="5">5</option>
+                                <option value="7" selected>7</option>
+                                <option value="9">9</option>
+                            </select>
+                        </label>
+                        <button class="btn btn-tool" id="btn-toggle-dispersion" title="按波长计算折射率，观察色散">
+                            <span>🌈 色散</span>
+                        </button>
                     </div>
                     <div class="toolbar-right">
                         <button class="btn btn-tool" id="btn-toggle-labels" title="显示/隐藏标注">
@@ -274,6 +292,11 @@
                     <canvas id="optics-canvas"></canvas>
                     <div class="canvas-drop-hint hidden" id="canvas-drop-hint">
                         <span>拖放透镜到这里</span>
+                    </div>
+                    <div class="canvas-notice hidden" id="canvas-notice">
+                        <span class="canvas-notice-icon">⚠️</span>
+                        <span class="canvas-notice-text" id="canvas-notice-text"></span>
+                        <button class="btn btn-secondary btn-sm" id="btn-ray-retry">重试</button>
                     </div>
                 </div>
             </section>
@@ -294,6 +317,16 @@
                                 透镜类型
                                 <span class="param-value" id="param-type-value">凸透镜</span>
                             </label>
+                            <div class="param-hint" id="param-type-desc"></div>
+                        </div>
+                        <div class="param-group" id="param-focal-group">
+                            <label class="param-label">
+                                焦距（近轴焦点）
+                                <span class="param-value" id="param-focal-value">—</span>
+                            </label>
+                            <div class="param-hint" id="param-focal-desc">
+                                焦点标记 F 与中心光线的实际会聚位置一致
+                            </div>
                         </div>
                         <div class="param-group">
                             <label class="param-label">

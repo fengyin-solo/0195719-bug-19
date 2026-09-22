@@ -127,6 +127,21 @@
     .btn-tool span {
         display: none;
     }
+
+    /* 色散按钮只有文字+emoji，小屏仍需显示 */
+    #btn-toggle-dispersion span {
+        display: inline;
+        font-size: var(--font-size-xs);
+    }
+
+    /* 入射角控件在小屏上收窄 */
+    .light-slider {
+        width: 56px;
+    }
+
+    .light-control-label {
+        display: none;
+    }
     
     .canvas-wrapper {
         margin: var(--spacing-sm);
