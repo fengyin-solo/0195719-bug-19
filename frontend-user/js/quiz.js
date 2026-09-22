@@ -1,12 +1,15 @@
 /**
  * 光学测验管理器
- * 
+ *
  * 功能：
  * - 随机选择测验题目
- * - 验证用户答案（透镜类型、参数、光线模式等）
+ * - 验证用户答案（透镜类型、参数、光线模式、实际光路追迹结果等）
  * - 评分并给出详细解释
  * - 提供提示功能
  * - 记录答题历史
+ *
+ * 会聚/发散/球差类判定直接调用 Renderer 的光路分析，
+ * 与画布上画出来的光线使用同一套物理计算。
  */
 class QuizManager {
     constructor(canvasManager) {
@@ -20,7 +23,7 @@ class QuizManager {
         this.isQuizMode = false;
         this.answeredQuestions = new Set();
     }
-    
+
     /**
      * 开启测验模式
      */
@@ -31,7 +34,7 @@ class QuizManager {
         this.answeredQuestions.clear();
         this.nextQuestion();
     }
-    
+
     /**
      * 关闭测验模式
      */
@@ -41,45 +44,45 @@ class QuizManager {
         this.hintUsed = false;
         window.dispatchEvent(new CustomEvent('quizStopped'));
     }
-    
+
     /**
      * 获取下一道随机题目
      */
     nextQuestion() {
         const questions = CONFIG.QUIZ_QUESTIONS;
         let availableQuestions = questions.filter(q => !this.answeredQuestions.has(q.id));
-        
+
         if (availableQuestions.length === 0) {
             this.answeredQuestions.clear();
             availableQuestions = questions;
         }
-        
+
         const randomIndex = Math.floor(Math.random() * availableQuestions.length);
         this.currentQuestion = availableQuestions[randomIndex];
         this.hintUsed = false;
-        
+
         this.answeredQuestions.add(this.currentQuestion.id);
-        
+
         window.dispatchEvent(new CustomEvent('questionChanged', {
             detail: this.currentQuestion
         }));
-        
+
         return this.currentQuestion;
     }
-    
+
     /**
      * 获取提示
      */
     getHint() {
         if (!this.currentQuestion) return null;
-        
+
         this.hintUsed = true;
         const hints = this.currentQuestion.hints;
         const randomIndex = Math.floor(Math.random() * hints.length);
-        
+
         return hints[randomIndex];
     }
-    
+
     /**
      * 验证用户答案
      */
@@ -92,17 +95,17 @@ class QuizManager {
                 details: []
             };
         }
-        
+
         const question = this.currentQuestion;
         const validation = question.validation;
         const requirements = question.requirements;
         const lenses = this.canvasManager.lenses;
         const lightMode = this.renderer.lightMode;
-        
+
         const results = [];
         let isCorrect = true;
         let explanationKey = 'correct';
-        
+
         if (lenses.length === 0) {
             return {
                 isCorrect: false,
@@ -111,9 +114,9 @@ class QuizManager {
                 details: []
             };
         }
-        
+
         const lens = lenses[0];
-        
+
         if (validation.checkType) {
             const typeCorrect = lens.type === requirements.lensType;
             results.push({
@@ -122,13 +125,13 @@ class QuizManager {
                 actual: lens.getTypeName(),
                 correct: typeCorrect
             });
-            
+
             if (!typeCorrect) {
                 isCorrect = false;
                 explanationKey = 'wrongType';
             }
         }
-        
+
         if (validation.checkLightMode && isCorrect) {
             const lightCorrect = lightMode === requirements.lightMode;
             results.push({
@@ -137,13 +140,13 @@ class QuizManager {
                 actual: lightMode === 'parallel' ? '平行光' : '点光源',
                 correct: lightCorrect
             });
-            
+
             if (!lightCorrect) {
                 isCorrect = false;
                 explanationKey = 'wrongLightMode';
             }
         }
-        
+
         if (validation.checkMaterial && isCorrect) {
             const materialCorrect = lens.material === requirements.material;
             results.push({
@@ -152,51 +155,51 @@ class QuizManager {
                 actual: lens.getMaterialName(),
                 correct: materialCorrect
             });
-            
+
             if (!materialCorrect) {
                 isCorrect = false;
                 explanationKey = 'wrongMaterial';
             }
         }
-        
+
         if (validation.checkRefractiveIndex && isCorrect) {
             const ri = lens.refractiveIndex;
             const minRI = requirements.minRefractiveIndex || 1.0;
             const maxRI = requirements.maxRefractiveIndex || 2.0;
             const riCorrect = ri >= minRI && ri <= maxRI;
-            
+
             results.push({
                 name: '折射率',
                 expected: `${minRI} - ${maxRI}`,
                 actual: ri.toFixed(2),
                 correct: riCorrect
             });
-            
+
             if (!riCorrect) {
                 isCorrect = false;
                 explanationKey = 'wrongRI';
             }
         }
-        
+
         if (validation.checkCurvature && isCorrect) {
             const curvature = lens.curvature;
             const minCurv = requirements.minCurvature || 0;
             const maxCurv = requirements.maxCurvature || 100;
             const curvCorrect = curvature >= minCurv && curvature <= maxCurv;
-            
+
             results.push({
                 name: '曲率',
                 expected: `${minCurv}% - ${maxCurv}%`,
                 actual: `${curvature}%`,
                 correct: curvCorrect
             });
-            
+
             if (!curvCorrect) {
                 isCorrect = false;
                 explanationKey = 'wrongCurvature';
             }
         }
-        
+
         if (validation.checkConvergence && isCorrect) {
             const convergenceResult = this.checkConvergence(lens);
             results.push({
@@ -205,13 +208,13 @@ class QuizManager {
                 actual: convergenceResult.message,
                 correct: convergenceResult.converging
             });
-            
+
             if (!convergenceResult.converging) {
                 isCorrect = false;
                 explanationKey = 'noConvergence';
             }
         }
-        
+
         if (validation.checkDivergence && isCorrect) {
             const divergenceResult = this.checkDivergence(lens);
             results.push({
@@ -220,13 +223,13 @@ class QuizManager {
                 actual: divergenceResult.message,
                 correct: divergenceResult.diverging
             });
-            
+
             if (!divergenceResult.diverging) {
                 isCorrect = false;
                 explanationKey = 'noDivergence';
             }
         }
-        
+
         if (validation.checkNoDeflection && isCorrect) {
             const noDeflectionResult = this.checkNoDeflection(lens);
             results.push({
@@ -235,13 +238,13 @@ class QuizManager {
                 actual: noDeflectionResult.message,
                 correct: noDeflectionResult.noDeflection
             });
-            
+
             if (!noDeflectionResult.noDeflection) {
                 isCorrect = false;
                 explanationKey = 'hasDeflection';
             }
         }
-        
+
         if (validation.checkDispersion && isCorrect) {
             const dispersionResult = this.checkDispersion(lens);
             results.push({
@@ -250,13 +253,13 @@ class QuizManager {
                 actual: dispersionResult.message,
                 correct: dispersionResult.hasDispersion
             });
-            
+
             if (!dispersionResult.hasDispersion) {
                 isCorrect = false;
                 explanationKey = 'noDispersion';
             }
         }
-        
+
         if (validation.checkLowDispersion && isCorrect) {
             const lowDispersionResult = this.checkLowDispersion(lens);
             results.push({
@@ -265,13 +268,13 @@ class QuizManager {
                 actual: lowDispersionResult.message,
                 correct: lowDispersionResult.lowDispersion
             });
-            
+
             if (!lowDispersionResult.lowDispersion) {
                 isCorrect = false;
                 explanationKey = 'highDispersion';
             }
         }
-        
+
         if (validation.checkSphericalAberration && isCorrect) {
             const aberrationResult = this.checkSphericalAberration(lens);
             results.push({
@@ -280,13 +283,13 @@ class QuizManager {
                 actual: aberrationResult.message,
                 correct: aberrationResult.hasAberration
             });
-            
+
             if (!aberrationResult.hasAberration) {
                 isCorrect = false;
                 explanationKey = 'noAberration';
             }
         }
-        
+
         if (validation.checkNoSphericalAberration && isCorrect) {
             const noAberrationResult = this.checkNoSphericalAberration(lens);
             results.push({
@@ -295,22 +298,22 @@ class QuizManager {
                 actual: noAberrationResult.message,
                 correct: noAberrationResult.noAberration
             });
-            
+
             if (!noAberrationResult.noAberration) {
                 isCorrect = false;
                 explanationKey = 'hasAberration';
             }
         }
-        
+
         let earnedScore = 0;
         if (isCorrect) {
             earnedScore = this.hintUsed ? 5 : 10;
             this.score += earnedScore;
         }
         this.totalQuestions++;
-        
+
         const explanation = question.explanation[explanationKey] || question.explanation.correct;
-        
+
         this.questionHistory.push({
             questionId: question.id,
             title: question.title,
@@ -319,7 +322,7 @@ class QuizManager {
             hintUsed: this.hintUsed,
             timestamp: Date.now()
         });
-        
+
         return {
             isCorrect: isCorrect,
             score: earnedScore,
@@ -330,50 +333,62 @@ class QuizManager {
             hintUsed: this.hintUsed
         };
     }
-    
+
     /**
-     * 检查光线会聚情况
+     * 检查光线会聚情况（基于实际光路追迹）
      */
     checkConvergence(lens) {
-        if (lens.type !== CONFIG.LENS_TYPES.CONVEX) {
+        if (lens.type !== CONFIG.LENS_TYPES.CONVEX &&
+            lens.type !== CONFIG.LENS_TYPES.ASPHERIC) {
             return { converging: false, message: '需要使用凸透镜' };
         }
-        
+
         const focalLength = lens.getFocalLength();
         const minFocal = this.currentQuestion.requirements.minFocalLength || 50;
         const maxFocal = this.currentQuestion.requirements.maxFocalLength || 500;
-        
+
         if (focalLength < minFocal || focalLength > maxFocal) {
-            return { 
-                converging: false, 
-                message: `焦距 ${Math.round(focalLength)}px 不在合适范围内 (${minFocal}-${maxFocal}px)` 
+            return {
+                converging: false,
+                message: `焦距 ${Math.round(focalLength)}px 不在合适范围内 (${minFocal}-${maxFocal}px)`
             };
         }
-        
-        const strength = (lens.refractiveIndex - 1) * (lens.curvature / 100);
-        if (strength < 0.15) {
+
+        const analysis = this.renderer.analyzeCurrentLight(null);
+        if (analysis.hitCount === 0) {
+            return { converging: false, message: '光线没有穿过透镜，请把透镜移到光路范围内' };
+        }
+        if (!analysis.converging) {
             return { converging: false, message: '会聚能力太弱，请增大折射率或曲率' };
         }
-        
+
         return { converging: true, message: `光线会聚良好，焦距约 ${Math.round(focalLength)}px` };
     }
-    
+
     /**
-     * 检查光线发散情况
+     * 检查光线发散情况（基于实际光路追迹）
      */
     checkDivergence(lens) {
         if (lens.type !== CONFIG.LENS_TYPES.CONCAVE) {
             return { diverging: false, message: '需要使用凹透镜' };
         }
-        
+
         const strength = (lens.refractiveIndex - 1) * (lens.curvature / 100);
         if (strength < 0.1) {
             return { diverging: false, message: '发散能力太弱，请增大折射率或曲率' };
         }
-        
-        return { diverging: true, message: '光线发散效果明显' };
+
+        const analysis = this.renderer.analyzeCurrentLight(null);
+        if (analysis.hitCount === 0) {
+            return { diverging: false, message: '光线没有穿过透镜，请把透镜移到光路范围内' };
+        }
+        if (!analysis.diverging) {
+            return { diverging: false, message: '光线没有明显发散，请检查透镜位置或参数' };
+        }
+
+        return { diverging: true, message: '光线向外发散，效果明显' };
     }
-    
+
     /**
      * 检查光线是否无偏折
      */
@@ -381,14 +396,19 @@ class QuizManager {
         if (lens.type !== CONFIG.LENS_TYPES.PLANO) {
             return { noDeflection: false, message: '需要使用平面透镜' };
         }
-        
+
         if (Math.abs(this.renderer.incidentAngle) > 5) {
             return { noDeflection: false, message: '请让光线垂直入射（入射角为0）' };
         }
-        
+
+        const analysis = this.renderer.analyzeCurrentLight(null);
+        if (analysis.hitCount === 0) {
+            return { noDeflection: false, message: '光线没有穿过透镜，请把透镜移到光路范围内' };
+        }
+
         return { noDeflection: true, message: '光线沿直线传播，方向不变' };
     }
-    
+
     /**
      * 检查色散效果
      */
@@ -396,19 +416,24 @@ class QuizManager {
         if (lens.dispersion < 0.2) {
             return { hasDispersion: false, message: '材料色散太小，请使用普通玻璃' };
         }
-        
+
         if (Math.abs(this.renderer.incidentAngle) < 5) {
             return { hasDispersion: false, message: '请增大入射角，让光线斜入射' };
         }
-        
+
         const strength = (lens.refractiveIndex - 1) * (lens.curvature / 100);
         if (strength < 0.2) {
             return { hasDispersion: false, message: '偏折太弱，色散不明显' };
         }
-        
+
+        const analysis = this.renderer.analyzeCurrentLight(null);
+        if (analysis.hitCount === 0) {
+            return { hasDispersion: false, message: '光线没有穿过透镜，请把透镜移到光路范围内' };
+        }
+
         return { hasDispersion: true, message: '色散现象明显，不同颜色光分离' };
     }
-    
+
     /**
      * 检查低色散效果
      */
@@ -416,36 +441,71 @@ class QuizManager {
         if (lens.dispersion > 0.15) {
             return { lowDispersion: false, message: '材料色散较大，请使用低色散镜片' };
         }
-        
+
+        const analysis = this.renderer.analyzeCurrentLight(null);
+        if (analysis.hitCount === 0) {
+            return { lowDispersion: false, message: '光线没有穿过透镜，请把透镜移到光路范围内' };
+        }
+
         return { lowDispersion: true, message: '色散很小，不同颜色光几乎重合' };
     }
-    
+
     /**
-     * 检查球差现象
+     * 检查球差现象：对实际平行光追迹，边缘与中心光线焦点分散需超过焦距的 5%
      */
     checkSphericalAberration(lens) {
         if (lens.type !== CONFIG.LENS_TYPES.CONVEX) {
             return { hasAberration: false, message: '需要使用球面凸透镜' };
         }
-        
+
+        if (this.renderer.lightMode !== CONFIG.LIGHT_MODES.PARALLEL) {
+            return { hasAberration: false, message: '请切换到平行光模式' };
+        }
+
         if (lens.curvature < 50) {
             return { hasAberration: false, message: '曲率太小，球差不明显' };
         }
-        
-        return { hasAberration: true, message: '球差明显，边缘光线会聚点与中心不同' };
+
+        const analysis = this.renderer.analyzeCurrentLight(null);
+        if (analysis.hitCount === 0) {
+            return { hasAberration: false, message: '光线没有穿过透镜，请把透镜移到光路范围内' };
+        }
+        if (analysis.edgeShift < 0.05) {
+            return { hasAberration: false, message: '球差不明显，请增大曲率后再观察' };
+        }
+
+        return {
+            hasAberration: true,
+            message: `球差明显，边缘光线焦点与中心相差约 ${Math.round(analysis.edgeShift * 100)}% 焦距`
+        };
     }
-    
+
     /**
-     * 检查无球差效果
+     * 检查消球差效果：非球面的实际焦点分散应小于焦距的 3%
      */
     checkNoSphericalAberration(lens) {
         if (lens.type !== CONFIG.LENS_TYPES.ASPHERIC) {
             return { noAberration: false, message: '需要使用非球面透镜' };
         }
-        
+
+        if (this.renderer.lightMode !== CONFIG.LIGHT_MODES.PARALLEL) {
+            return { noAberration: false, message: '请切换到平行光模式' };
+        }
+
+        const analysis = this.renderer.analyzeCurrentLight(null);
+        if (analysis.hitCount === 0) {
+            return { noAberration: false, message: '光线没有穿过透镜，请把透镜移到光路范围内' };
+        }
+        if (analysis.edgeShift >= 0.03) {
+            return {
+                noAberration: false,
+                message: `仍有约 ${Math.round(analysis.edgeShift * 100)}% 焦距的焦点分散，请确认使用非球面透镜`
+            };
+        }
+
         return { noAberration: true, message: '球差被消除，所有光线会聚到同一点' };
     }
-    
+
     /**
      * 获取透镜类型中文名称
      */
@@ -458,7 +518,7 @@ class QuizManager {
         };
         return names[type] || type;
     }
-    
+
     /**
      * 获取材料中文名称
      */
@@ -470,7 +530,7 @@ class QuizManager {
         };
         return names[material] || material;
     }
-    
+
     /**
      * 获取当前得分
      */
@@ -478,7 +538,7 @@ class QuizManager {
         return {
             score: this.score,
             totalQuestions: this.totalQuestions,
-            accuracy: this.totalQuestions > 0 
+            accuracy: this.totalQuestions > 0
                 ? Math.round((this.questionHistory.filter(q => q.isCorrect).length / this.totalQuestions) * 100)
                 : 0
         };

@@ -7,23 +7,29 @@ class Lens {
         this.type = options.type || CONFIG.LENS_TYPES.CONVEX;
         this.x = options.x || 0;
         this.y = options.y || 0;
-        this.refractiveIndex = options.refractiveIndex || CONFIG.LENS_DEFAULTS.refractiveIndex;
         this.size = options.size || CONFIG.LENS_DEFAULTS.size;
         this.curvature = options.curvature || CONFIG.LENS_DEFAULTS.curvature;
         this.material = options.material || CONFIG.LENS_DEFAULTS.material;
         this.selected = false;
-        
-        // 根据材料设置默认参数
+
+        // 应用材料预设（设置色散与材料默认折射率）
         this.applyMaterial(this.material);
+
+        // 显式指定的折射率优先（如滑块调整、刷新后恢复、特殊材料）
+        if (options.refractiveIndex !== undefined) {
+            this.refractiveIndex = options.refractiveIndex;
+        }
     }
-    
+
     /**
      * 应用材料预设
+     * @param {string} materialId 材料ID
+     * @param {boolean} [keepIndex=false] 是否保留当前折射率（切换材料时不重置）
      */
-    applyMaterial(materialId) {
+    applyMaterial(materialId, keepIndex = false) {
         const materials = CONFIG.MATERIALS;
         let material;
-        
+
         switch (materialId) {
             case 'highIndex':
                 material = materials.HIGH_INDEX;
@@ -34,14 +40,13 @@ class Lens {
             default:
                 material = materials.NORMAL;
         }
-        
+
         this.material = materialId;
         this.dispersion = material.dispersion;
-        
-        // 只在初始化时设置折射率
-        if (!this._initialized) {
+
+        // 切换材料时采用该材料的标准折射率；恢复存档时保留原值
+        if (!keepIndex) {
             this.refractiveIndex = material.refractiveIndex;
-            this._initialized = true;
         }
     }
     
@@ -61,15 +66,31 @@ class Lens {
     }
     
     /**
-     * 获取焦距
+     * 获取焦距（绿光基准折射率）
+     * 凹透镜返回负值（虚焦点），平面透镜返回 Infinity
      */
     getFocalLength() {
+        return this.getFocalLengthForColor(null);
+    }
+
+    /**
+     * 获取指定颜色光在该透镜中的焦距
+     * 色散时不同颜色折射率不同，焦距也不同（蓝光更短、红光更长）
+     *
+     * @param {string|null} color 'red' | 'green' | 'blue' | null（基准）
+     * @returns {number} 焦距（像素），凹透镜为负，平面为 Infinity
+     */
+    getFocalLengthForColor(color) {
         if (this.type === CONFIG.LENS_TYPES.PLANO) {
             return Infinity;
         }
-        
+
+        const n = color
+            ? Physics.calculateDispersionIndex(this.refractiveIndex, this.dispersion, color)
+            : this.refractiveIndex;
         const sign = this.type === CONFIG.LENS_TYPES.CONCAVE ? -1 : 1;
-        return sign * Physics.calculateFocalLength(this.refractiveIndex, this.curvature, this.getHeight());
+
+        return sign * Physics.calculateFocalLength(n, this.curvature, this.getHeight());
     }
     
     /**

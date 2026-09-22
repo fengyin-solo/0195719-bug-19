@@ -275,6 +275,10 @@
                     <div class="canvas-drop-hint hidden" id="canvas-drop-hint">
                         <span>拖放透镜到这里</span>
                     </div>
+                    <div class="ray-status hidden" id="ray-status" role="alert">
+                        <span class="ray-status-message" id="ray-status-message"></span>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-ray-retry">重新检测光路</button>
+                    </div>
                 </div>
             </section>
 
@@ -327,6 +331,17 @@
                                 <option value="highIndex">高折射率镜片</option>
                                 <option value="lowDispersion">低色散镜片</option>
                             </select>
+                        </div>
+                        <div class="param-group param-info-group">
+                            <div class="param-info-row">
+                                <span class="param-info-label">焦距</span>
+                                <span class="param-info-value" id="param-focal-value">—</span>
+                            </div>
+                            <div class="param-info-row">
+                                <span class="param-info-label">会聚情况</span>
+                                <span class="param-info-value" id="param-aberration-value">—</span>
+                            </div>
+                            <div class="param-hint">焦距与焦点标记均按当前折射率和波长实时计算</div>
                         </div>
                         <div class="param-actions">
                             <button class="btn btn-secondary" id="btn-reset-lens">重置参数</button>
